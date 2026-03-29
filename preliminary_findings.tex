@@ -1,0 +1,359 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{microtype}
+\usepackage{enumitem}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  citecolor=blue,
+  urlcolor=blue
+}
+
+\newtheorem{proposition}{Proposition}
+\newtheorem{remark}{Remark}
+
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Var}{\mathrm{Var}}
+\newcommand{\R}{\mathbb{R}}
+
+\title{Preliminary Notes on ERM with Few Latent Tasks}
+\author{}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This note records preliminary findings for the following question. Data are generated hierarchically: first draw latent task variables
+\[
+\theta_1,\dots,\theta_k \overset{\mathrm{iid}}{\sim} p(\theta),
+\]
+then for each task draw
+\[
+Z_{ij} = (X_{ij},Y_{ij}) \overset{\mathrm{iid}}{\sim} P_{\theta_i},
+\qquad j=1,\dots,m.
+\]
+We pool all $km$ examples and run empirical risk minimization (ERM) over a hypothesis class $\mathcal{H}$. When does the resulting predictor achieve low risk under the mixture distribution $D(z) = \int P_{\theta}(z)\,p(d\theta)$, especially in regimes where the number of distinct tasks $k$ is much smaller than the usual $O(\varepsilon^{-2})$ scale? The literature suggests that this problem sits between classical supervised learning, meta-learning, and domain generalization, but is not identical to any of them. The main preliminary conclusion is simple: pooled ERM is unbiased for the target mixture risk, but the real bottleneck is task-level heterogeneity. Large $m$ only helps with within-task noise; beating the $k$ bottleneck requires structural assumptions on the task-risk map $\theta \mapsto \E[\ell(h;Z)\mid \theta]$.
+\end{abstract}
+
+\section{Problem setup}
+Let $\ell(h;z)$ be a loss in $[0,1]$. The population risk of a predictor $h \in \mathcal{H}$ is
+\[
+R(h) := \E_{\theta \sim p}\E_{Z \sim P_{\theta}}[\ell(h;Z)].
+\]
+Given hierarchical data $\{Z_{ij}\}_{i \in [k], j \in [m]}$, the pooled empirical risk is
+\[
+\widehat{R}_{k,m}(h) := \frac{1}{k}\sum_{i=1}^k \frac{1}{m}\sum_{j=1}^m \ell(h;Z_{ij}),
+\]
+and pooled ERM returns
+\[
+\widehat{h} \in \arg\min_{h \in \mathcal{H}} \widehat{R}_{k,m}(h).
+\]
+
+Two features distinguish this from ordinary iid learning.
+\begin{enumerate}[label=(\roman*)]
+\item The individual examples $Z_{ij}$ are not jointly iid because points from the same task share the same latent $\theta_i$.
+\item The dependence is highly structured: the sample is a collection of $k$ iid clusters, each of size $m$.
+\end{enumerate}
+
+The question of interest is not whether $km$ examples are enough in the classical iid sense. Rather, it is whether a small number of distinct tasks can still suffice because the task family has special structure.
+
+\section{Literature review}
+
+\subsection{Motivation from in-context learning}
+The motivating analogy is the line of work showing that in-context learning can recover learning algorithms that generalize beyond the finite task family seen during pretraining. Akyurek et al.~\cite{akyurek2023} showed that transformers can implement linear estimators such as gradient descent and ridge regression in context. Raventos et al.~\cite{raventos2023} sharpened the point by training transformers on a finite set of linear regression tasks and identifying a task-diversity threshold: below it, the transformer behaves like a Bayesian estimator tied to the pretraining task prior; above it, behavior aligns with ridge regression over a broader task family.
+
+The present supervised-learning question is a natural analogue. Instead of asking whether a transformer trained on finitely many tasks can perform the right in-context algorithm on new tasks, we ask whether ordinary pooled ERM, trained on finitely many latent tasks, can recover a predictor with low risk under the full meta-distribution.
+
+\subsection{Learning to learn from an environment of tasks}
+Baxter's classical ``environment of tasks'' framework~\cite{baxter2000} is the closest foundational theory. The learner observes multiple tasks sampled from a task environment and uses them to learn an inductive bias that transfers to novel tasks. The central sample-complexity split is exactly the one relevant here: number of tasks versus number of examples per task.
+
+Later work made this split more explicit. Maurer, Pontil, and Romera-Paredes~\cite{maurer2016} analyzed multitask and learning-to-learn representation learning, identifying regimes where many related tasks reduce the burden on per-task sample size. Denevi et al.~\cite{denevi2019} studied learning-to-learn with biased regularization and showed benefits when the variance across tasks is small. More recently, Aliakbarpour et al.~\cite{aliakbarpour2024} proved that in structured representation-learning settings, one can metalearn from very few samples per task, but only because the shared representation class is strongly restricted.
+
+These papers do not analyze pooled ERM directly. Typically the algorithm learns a shared representation, bias vector, or initialization and then adapts to a fresh task. Still, they strongly suggest the right principle for the present problem: if one wants nontrivial generalization from few tasks, the family of task-level predictors or risks must be simple.
+
+\subsection{Domain generalization and latent domains}
+Another adjacent literature is domain generalization. Here multiple environments are available at training time and the goal is to perform well on unseen environments. IRM~\cite{arjovsky2019} and REx~\cite{krueger2021} search for predictors whose behavior is stable across environments. However, these methods usually assume observed environment labels and often target a stronger notion of robustness than the average-risk objective above.
+
+For the current question, two facts from the domain-generalization literature matter. First, plain ERM is a strong baseline: Gulrajani and Lopez-Paz~\cite{gulrajani2020} showed that carefully tuned ERM is competitive with specialized domain-generalization methods on standard benchmarks, and Sener and Koltun~\cite{sener2023} argued that some domain-generalization penalties help only when they do not induce excess empirical risk. Second, there is work on latent domains, such as Matsuura and Harada~\cite{matsuura2019}, where domain labels are not observed and one must infer hidden environments.
+
+That said, the objective here is still different. We do not seek worst-domain robustness, and we do not necessarily use domain labels at either train or test time. The target is the average mixture risk under $p(\theta)P_{\theta}$, with a clustered but exchangeable training sample.
+
+\section{Preliminary findings}
+
+\subsection{Unbiasedness is not the issue}
+The first observation is almost trivial, but useful.
+
+\begin{proposition}[Pooled empirical risk is unbiased]
+For every fixed $h \in \mathcal{H}$,
+\[
+\E[\widehat{R}_{k,m}(h)] = R(h).
+\]
+\end{proposition}
+
+\begin{proof}
+Each individual point $Z_{ij}$ has marginal distribution
+\[
+\int P_{\theta}(z)\,p(d\theta) = D(z),
+\]
+so
+\[
+\E[\ell(h;Z_{ij})] = \E_{\theta}\E_{Z \sim P_{\theta}}[\ell(h;Z)] = R(h).
+\]
+Averaging over $i$ and $j$ preserves the same expectation.
+\end{proof}
+
+So the clustered sampling scheme does not introduce bias in the target objective. The problem is concentration: how quickly does $\widehat{R}_{k,m}(h)$ approximate $R(h)$, uniformly over $h$?
+
+\subsection{Exact variance decomposition}
+For a fixed $h$, define the task-conditional mean and variance
+\[
+\mu_h(\theta) := \E[\ell(h;Z)\mid \theta],
+\qquad
+v_h(\theta) := \Var(\ell(h;Z)\mid \theta).
+\]
+
+\begin{proposition}[Task-level versus within-task variance]
+For every fixed $h \in \mathcal{H}$,
+\[
+\Var(\widehat{R}_{k,m}(h))
+= \frac{1}{k}\Var_{\theta}(\mu_h(\theta))
+  \;+\;
+  \frac{1}{km}\E_{\theta}[v_h(\theta)].
+\]
+\end{proposition}
+
+\begin{proof}
+Let
+\[
+U_i(h) := \frac{1}{m}\sum_{j=1}^m \ell(h;Z_{ij}).
+\]
+The variables $U_1(h),\dots,U_k(h)$ are iid across $i$, and
+\[
+\widehat{R}_{k,m}(h) = \frac{1}{k}\sum_{i=1}^k U_i(h).
+\]
+Hence
+\[
+\Var(\widehat{R}_{k,m}(h)) = \frac{1}{k}\Var(U_1(h)).
+\]
+Applying the law of total variance and using conditional independence within a task,
+\begin{align*}
+\Var(U_1(h))
+&= \Var\!\left(\E[U_1(h)\mid \theta_1]\right)
+  + \E\!\left[\Var(U_1(h)\mid \theta_1)\right] \\
+&= \Var_{\theta}(\mu_h(\theta))
+  + \E_{\theta}\!\left[\frac{v_h(\theta)}{m}\right].
+\end{align*}
+Substituting gives the claim.
+\end{proof}
+
+This decomposition is the key preliminary finding. It says that $m$ only suppresses the within-task noise term. The task-level heterogeneity term, $\Var_{\theta}(\mu_h(\theta))/k$, is unaffected by increasing the number of samples from each already-observed task.
+
+\paragraph{Design-effect form.}
+Let
+\[
+\sigma_h^2 := \Var_{Z \sim D}(\ell(h;Z))
+= \Var_{\theta}(\mu_h(\theta)) + \E_{\theta}[v_h(\theta)].
+\]
+Then
+\[
+\Var(\widehat{R}_{k,m}(h))
+= \frac{\sigma_h^2}{km}\Bigl(1 + (m-1)\rho_h\Bigr),
+\qquad
+\rho_h := \frac{\Var_{\theta}(\mu_h(\theta))}{\sigma_h^2}.
+\]
+The quantity $\rho_h$ is the intraclass correlation of losses from the same task. Equivalently, the effective sample size is
+\[
+n_{\mathrm{eff}}(h) = \frac{km}{1 + (m-1)\rho_h}.
+\]
+When $\rho_h \approx 0$, pooled ERM behaves almost like iid learning with $km$ samples. When $\rho_h \approx 1$, only the number of tasks matters and the effective sample size is about $k$.
+
+\subsection{A finite-class generalization bound}
+The preceding variance formula converts immediately into a concentration bound for finite classes.
+
+\begin{proposition}[Finite-class Bernstein bound]
+Assume $\ell(h;z) \in [0,1]$ for all $h,z$, and let $\mathcal{H}$ be finite. Then with probability at least $1-\delta$, simultaneously for all $h \in \mathcal{H}$,
+\[
+\bigl|R(h) - \widehat{R}_{k,m}(h)\bigr|
+\le
+\sqrt{
+\frac{2 \log(2|\mathcal{H}|/\delta)}{k}
+\left(
+\Var_{\theta}(\mu_h(\theta))
++ \frac{\E_{\theta}[v_h(\theta)]}{m}
+\right)
+}
++
+\frac{\log(2|\mathcal{H}|/\delta)}{3k}.
+\]
+\end{proposition}
+
+\begin{proof}
+For fixed $h$, the task averages $U_i(h)$ from the previous proof are iid, bounded in $[0,1]$, with mean $R(h)$ and variance
+\[
+\Var(U_i(h)) = \Var_{\theta}(\mu_h(\theta)) + \frac{1}{m}\E_{\theta}[v_h(\theta)].
+\]
+Applying Bernstein's inequality to $\frac{1}{k}\sum_i U_i(h)$ and then taking a union bound over $\mathcal{H}$ yields the claim.
+\end{proof}
+
+This bound makes the bottleneck explicit. If the task-mean losses $\mu_h(\theta)$ vary substantially across $\theta$, then the first term dominates and one essentially needs many tasks. If instead the task-mean losses are nearly constant, then the bound is close to the ordinary iid $1/\sqrt{km}$ rate.
+
+\subsection{Why small $k$ requires structure}
+The previous propositions already imply an important impossibility heuristic.
+
+\begin{remark}[The $m \to \infty$ reduction]
+If $m$ were infinite, then for each observed task $\theta_i$ we would know the exact task risk $\mu_h(\theta_i)$ for every $h$. The learning problem would reduce to approximating
+\[
+R(h) = \E_{\theta}[\mu_h(\theta)]
+\]
+from the task sample $\theta_1,\dots,\theta_k$. Therefore, without additional structure on the function class
+\[
+\mathcal{M} := \{\mu_h : h \in \mathcal{H}\},
+\]
+large $m$ cannot compensate for small $k$.
+\end{remark}
+
+This is the cleanest way to state what seems both true and important:
+\begin{enumerate}[label=(\alph*)]
+\item A nontrivial ``few tasks suffice'' phenomenon is possible only if the task-level risk class $\mathcal{M}$ is simple, low-rank, low-variance, or otherwise compressible.
+\item In a distribution-free setting over arbitrary task families, there is no miracle. Once within-task noise is averaged out, the remaining problem is ordinary generalization over the space of tasks.
+\end{enumerate}
+
+This is very much in line with the meta-learning literature: success with few samples per task is possible, but only because the shared structure across tasks is constrained.
+
+\subsection{Linear regression as a concrete test case}
+The linear-regression case is a natural place to start because it most closely parallels the ICL literature. Suppose
+\[
+h_w(x) = w^\top x,
+\qquad
+\ell(w;(x,y)) = (w^\top x - y)^2.
+\]
+For each task $\theta$, define
+\[
+A(\theta) := \E[XX^\top \mid \theta],
+\qquad
+b(\theta) := \E[XY \mid \theta],
+\qquad
+c(\theta) := \E[Y^2 \mid \theta].
+\]
+Then the task risk is
+\[
+r_{\theta}(w)
+:= \E[(w^\top X - Y)^2 \mid \theta]
+= w^\top A(\theta) w - 2 w^\top b(\theta) + c(\theta),
+\]
+and the mixture risk is
+\[
+R(w)
+= w^\top \bar{A} w - 2 w^\top \bar{b} + \bar{c},
+\]
+where
+\[
+\bar{A} := \E_{\theta}[A(\theta)],
+\qquad
+\bar{b} := \E_{\theta}[b(\theta)],
+\qquad
+\bar{c} := \E_{\theta}[c(\theta)].
+\]
+
+This specialization exposes an appealing route for future work. The full meta-distribution matters only through the averages of a small set of task statistics. Therefore:
+\begin{enumerate}[label=(\roman*)]
+\item if $A(\theta)$ and $b(\theta)$ concentrate strongly across tasks, then small $k$ should suffice;
+\item if the family $\{(A(\theta),b(\theta))\}$ lies near a low-dimensional subspace, then one should hope for sample complexity driven by that low task complexity rather than by an unrestricted $1/\varepsilon^2$ task count;
+\item if $A(\theta)$ and $b(\theta)$ vary arbitrarily, then even $m = \infty$ does not avoid the task-sampling bottleneck.
+\end{enumerate}
+
+This is, in my view, the closest supervised analogue of the phenomenon isolated by Raventos et al.~\cite{raventos2023}: finitely many observed tasks can stand in for an infinite task family only when those tasks already pin down the relevant sufficient statistics of the broader environment.
+
+\section{Takeaways and candidate directions}
+At this stage, the picture seems to be the following.
+
+\begin{enumerate}[label=(\arabic*)]
+\item \textbf{Pooled ERM is not misaligned with the target risk.} The sample is dependent, but each example has the correct marginal distribution. The real issue is variance and uniform convergence, not bias.
+\item \textbf{Task heterogeneity is the fundamental obstruction.} The exact variance decomposition shows that increasing $m$ only reduces within-task noise. It does nothing to reduce the variance of the task-mean losses across $\theta$.
+\item \textbf{Any regime with very small $k$ must exploit structure on the task-risk map.} Promising structural assumptions include common invariant conditionals, low-rank families of task moments, shared sufficient statistics, or small task variance around a common predictor.
+\item \textbf{Linear regression looks especially tractable.} One can hope for a theorem saying that if the task moments $(A(\theta),b(\theta))$ come from a low-complexity family, then pooled ERM or regularized ERM generalizes to the full mixture with $k$ much smaller than the naive iid task count.
+\end{enumerate}
+
+The main open question for the next step is therefore not merely ``can small $k$ work?'', but rather:
+\[
+\textit{what is the right notion of task-level complexity that replaces raw task count?}
+\]
+Finding the right answer here would give a supervised-learning counterpart to the finite-task-diversity phenomena already observed in in-context learning.
+
+\begin{thebibliography}{11}
+
+\bibitem{akyurek2023}
+Ekin Akyurek, Dale Schuurmans, Jacob Andreas, Tengyu Ma, and Denny Zhou.
+\newblock What learning algorithm is in-context learning? Investigations with linear models.
+\newblock In \emph{International Conference on Learning Representations}, 2023.
+\newblock \url{https://arxiv.org/abs/2211.15661}
+
+\bibitem{raventos2023}
+Allan Raventos, Mansheej Paul, Feng Chen, and Surya Ganguli.
+\newblock Pretraining task diversity and the emergence of non-Bayesian in-context learning for regression.
+\newblock arXiv:2306.15063, 2023.
+\newblock \url{https://arxiv.org/abs/2306.15063}
+
+\bibitem{baxter2000}
+Jonathan Baxter.
+\newblock A model of inductive bias learning.
+\newblock \emph{Journal of Artificial Intelligence Research}, 12:149--198, 2000.
+\newblock \url{https://arxiv.org/abs/1106.0245}
+
+\bibitem{maurer2016}
+Andreas Maurer, Massimiliano Pontil, and Bernardino Romera-Paredes.
+\newblock The benefit of multitask representation learning.
+\newblock \emph{Journal of Machine Learning Research}, 17(81):1--32, 2016.
+\newblock \url{https://jmlr.org/beta/papers/v17/15-242.html}
+
+\bibitem{denevi2019}
+Giulia Denevi, Carlo Ciliberto, Riccardo Grazzi, and Massimiliano Pontil.
+\newblock Learning-to-learn stochastic gradient descent with biased regularization.
+\newblock arXiv:1903.10399, 2019.
+\newblock \url{https://arxiv.org/abs/1903.10399}
+
+\bibitem{aliakbarpour2024}
+Maryam Aliakbarpour, Konstantina Bairaktari, Gavin Brown, Adam Smith, Nathan Srebro, and Jonathan Ullman.
+\newblock Metalearning with very few samples per task.
+\newblock arXiv:2312.13978, 2024.
+\newblock \url{https://arxiv.org/abs/2312.13978}
+
+\bibitem{arjovsky2019}
+Martin Arjovsky, Leon Bottou, Ishaan Gulrajani, and David Lopez-Paz.
+\newblock Invariant risk minimization.
+\newblock arXiv:1907.02893, 2019.
+\newblock \url{https://arxiv.org/abs/1907.02893}
+
+\bibitem{krueger2021}
+David Krueger, Ethan Caballero, J\"orn-Henrik Jacobsen, Amy Zhang, Jonathan Binas, Dinghuai Zhang, Bernhard Sch\"olkopf, and Aaron Courville.
+\newblock Out-of-distribution generalization via risk extrapolation (REx).
+\newblock In \emph{International Conference on Machine Learning}, 2021.
+\newblock \url{https://arxiv.org/abs/2003.00688}
+
+\bibitem{gulrajani2020}
+Ishaan Gulrajani and David Lopez-Paz.
+\newblock In search of lost domain generalization.
+\newblock arXiv:2007.01434, 2020.
+\newblock \url{https://arxiv.org/abs/2007.01434}
+
+\bibitem{matsuura2019}
+Toshihiko Matsuura and Tatsuya Harada.
+\newblock Domain generalization using a mixture of multiple latent domains.
+\newblock arXiv:1911.07661, 2019.
+\newblock \url{https://arxiv.org/abs/1911.07661}
+
+\bibitem{sener2023}
+Ozan Sener and Vladlen Koltun.
+\newblock Domain generalization without excess empirical risk.
+\newblock arXiv:2308.15856, 2023.
+\newblock \url{https://arxiv.org/abs/2308.15856}
+
+\end{thebibliography}
+
+\end{document}
