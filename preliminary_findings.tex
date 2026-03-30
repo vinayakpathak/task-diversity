@@ -14,8 +14,12 @@
   urlcolor=blue
 }
 
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
 \newtheorem{proposition}{Proposition}
 \newtheorem{remark}{Remark}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
 
 \newcommand{\E}{\mathbb{E}}
 \newcommand{\Var}{\mathrm{Var}}
@@ -86,207 +90,354 @@ That said, the objective here is still different. We do not seek worst-domain ro
 
 \section{Preliminary findings}
 
-\subsection{Unbiasedness is not the issue}
-The first observation is almost trivial, but useful.
+\subsection{A brief tutorial on fat-shattering dimension}
+The fat-shattering dimension is the real-valued analogue of VC dimension. If a function class is binary-valued, shattering means realizing every $0/1$ labeling of a finite set. For real-valued classes, one needs a scale parameter $\gamma > 0$: the class should realize every binary pattern with a margin of size $\gamma$ around some thresholds.
 
-\begin{proposition}[Pooled empirical risk is unbiased]
-For every fixed $h \in \mathcal{H}$,
+\begin{definition}[Fat-shattering dimension]
+Let $\mathcal{F} \subseteq [0,1]^{\mathcal{X}}$ and let $\gamma > 0$. A set $x_1,\dots,x_t \in \mathcal{X}$ is \emph{$\gamma$-shattered} by $\mathcal{F}$ if there exist thresholds $s_1,\dots,s_t \in \R$ such that for every subset $A \subseteq [t]$, there exists $f_A \in \mathcal{F}$ satisfying
 \[
-\E[\widehat{R}_{k,m}(h)] = R(h).
-\]
-\end{proposition}
-
-\begin{proof}
-Each individual point $Z_{ij}$ has marginal distribution
-\[
-\int P_{\theta}(z)\,p(d\theta) = D(z),
-\]
-so
-\[
-\E[\ell(h;Z_{ij})] = \E_{\theta}\E_{Z \sim P_{\theta}}[\ell(h;Z)] = R(h).
-\]
-Averaging over $i$ and $j$ preserves the same expectation.
-\end{proof}
-
-So the clustered sampling scheme does not introduce bias in the target objective. The problem is concentration: how quickly does $\widehat{R}_{k,m}(h)$ approximate $R(h)$, uniformly over $h$?
-
-\subsection{Exact variance decomposition}
-For a fixed $h$, define the task-conditional mean and variance
-\[
-\mu_h(\theta) := \E[\ell(h;Z)\mid \theta],
+f_A(x_i) \le s_i - \gamma
+\quad \text{for } i \in A,
 \qquad
-v_h(\theta) := \Var(\ell(h;Z)\mid \theta).
+f_A(x_i) \ge s_i + \gamma
+\quad \text{for } i \notin A.
 \]
+The \emph{fat-shattering dimension} $\mathrm{fat}_{\gamma}(\mathcal{F})$ is the largest $t$ for which such a set exists, or $\infty$ if there is no largest such $t$.
+\end{definition}
 
-\begin{proposition}[Task-level versus within-task variance]
-For every fixed $h \in \mathcal{H}$,
+The learning problem characterized by the fat-shattering dimension is the following generic one. We have an example space $\mathcal{Z}$, a hypothesis class $\mathcal{H}$, and a bounded loss function
 \[
-\Var(\widehat{R}_{k,m}(h))
-= \frac{1}{k}\Var_{\theta}(\mu_h(\theta))
-  \;+\;
-  \frac{1}{km}\E_{\theta}[v_h(\theta)].
+\ell : \mathcal{H} \times \mathcal{Z} \to [0,1].
 \]
-\end{proposition}
-
-\begin{proof}
-Let
+An unknown distribution $P$ on $\mathcal{Z}$ is fixed, the learner receives iid samples
 \[
-U_i(h) := \frac{1}{m}\sum_{j=1}^m \ell(h;Z_{ij}).
+z_1,\dots,z_n \overset{\mathrm{iid}}{\sim} P,
 \]
-The variables $U_1(h),\dots,U_k(h)$ are iid across $i$, and
+and it wants to find a hypothesis whose population loss is nearly minimal:
 \[
-\widehat{R}_{k,m}(h) = \frac{1}{k}\sum_{i=1}^k U_i(h).
-\]
-Hence
-\[
-\Var(\widehat{R}_{k,m}(h)) = \frac{1}{k}\Var(U_1(h)).
-\]
-Applying the law of total variance and using conditional independence within a task,
-\begin{align*}
-\Var(U_1(h))
-&= \Var\!\left(\E[U_1(h)\mid \theta_1]\right)
-  + \E\!\left[\Var(U_1(h)\mid \theta_1)\right] \\
-&= \Var_{\theta}(\mu_h(\theta))
-  + \E_{\theta}\!\left[\frac{v_h(\theta)}{m}\right].
-\end{align*}
-Substituting gives the claim.
-\end{proof}
-
-This decomposition is the key preliminary finding. It says that $m$ only suppresses the within-task noise term. The task-level heterogeneity term, $\Var_{\theta}(\mu_h(\theta))/k$, is unaffected by increasing the number of samples from each already-observed task.
-
-\paragraph{Design-effect form.}
-Let
-\[
-\sigma_h^2 := \Var_{Z \sim D}(\ell(h;Z))
-= \Var_{\theta}(\mu_h(\theta)) + \E_{\theta}[v_h(\theta)].
-\]
-Then
-\[
-\Var(\widehat{R}_{k,m}(h))
-= \frac{\sigma_h^2}{km}\Bigl(1 + (m-1)\rho_h\Bigr),
-\qquad
-\rho_h := \frac{\Var_{\theta}(\mu_h(\theta))}{\sigma_h^2}.
-\]
-The quantity $\rho_h$ is the intraclass correlation of losses from the same task. Equivalently, the effective sample size is
-\[
-n_{\mathrm{eff}}(h) = \frac{km}{1 + (m-1)\rho_h}.
-\]
-When $\rho_h \approx 0$, pooled ERM behaves almost like iid learning with $km$ samples. When $\rho_h \approx 1$, only the number of tasks matters and the effective sample size is about $k$.
-
-\subsection{A finite-class generalization bound}
-The preceding variance formula converts immediately into a concentration bound for finite classes.
-
-\begin{proposition}[Finite-class Bernstein bound]
-Assume $\ell(h;z) \in [0,1]$ for all $h,z$, and let $\mathcal{H}$ be finite. Then with probability at least $1-\delta$, simultaneously for all $h \in \mathcal{H}$,
-\[
-\bigl|R(h) - \widehat{R}_{k,m}(h)\bigr|
+\E_{z \sim P}[\ell(\widehat{h},z)]
 \le
-\sqrt{
-\frac{2 \log(2|\mathcal{H}|/\delta)}{k}
-\left(
-\Var_{\theta}(\mu_h(\theta))
-+ \frac{\E_{\theta}[v_h(\theta)]}{m}
-\right)
-}
-+
-\frac{\log(2|\mathcal{H}|/\delta)}{3k}.
+\inf_{h \in \mathcal{H}} \E_{z \sim P}[\ell(h,z)] + \varepsilon.
 \]
-\end{proposition}
+A natural algorithm is ERM:
+\[
+\widehat{h}
+\in
+\arg\min_{h \in \mathcal{H}} \frac{1}{n}\sum_{i=1}^n \ell(h,z_i).
+\]
+To connect this with fat-shattering, one passes to the induced loss class
+\[
+\mathcal{F}_{\ell}
+:=
+\{z \mapsto \ell(h,z) : h \in \mathcal{H}\}
+\subseteq [0,1]^{\mathcal{Z}}.
+\]
+The fat-shattering dimension characterizes when this ERM problem is distribution-free learnable, meaning that for every $\varepsilon,\delta > 0$ there is an $n(\varepsilon,\delta)$ such that the above excess-risk guarantee holds with probability at least $1-\delta$, uniformly over all distributions $P$.
+
+\begin{theorem}[Sample complexity via fat-shattering]
+\label{thm:generic-fat-sample}
+There exist universal constants $c,C > 0$ such that the following holds. Let $\mathcal{H}$ be a hypothesis class, let $\ell : \mathcal{H} \times \mathcal{Z} \to [0,1]$ be a bounded loss, and let
+\[
+\mathcal{F}_{\ell}
+:=
+\{z \mapsto \ell(h,z) : h \in \mathcal{H}\}
+\subseteq [0,1]^{\mathcal{Z}}
+\]
+be the induced loss class. Fix any distribution $P$ on $\mathcal{Z}$ and draw iid samples
+\[
+z_1,\dots,z_n \overset{\mathrm{iid}}{\sim} P.
+\]
+If
+\[
+n
+\ge
+C \cdot \frac{\mathrm{fat}_{c\varepsilon}(\mathcal{F}_{\ell}) + \ln(1/\delta)}{\varepsilon^2},
+\]
+then with probability at least $1-\delta$, every empirical risk minimizer
+\[
+\widehat{h}
+\in
+\arg\min_{h \in \mathcal{H}} \frac{1}{n}\sum_{i=1}^n \ell(h,z_i)
+\]
+satisfies
+\[
+\E_{z \sim P}[\ell(\widehat{h},z)]
+\le
+\inf_{h \in \mathcal{H}} \E_{z \sim P}[\ell(h,z)] + \varepsilon.
+\]
+\end{theorem}
+
+This theorem is the clean answer to where the scale parameter $\gamma$ goes. To learn to accuracy $\varepsilon$, one needs to evaluate the complexity of the loss class at scale $\gamma \asymp \varepsilon$, which is why the bound involves $\mathrm{fat}_{c\varepsilon}$ rather than a scale-free quantity.
+
+\begin{theorem}[Worst-case optimality of the fat-shattering bound]
+\label{thm:generic-fat-lower}
+Up to universal constant factors, the dependence in Theorem~\ref{thm:generic-fat-sample} is unavoidable in the distribution-free setting. In other words, one cannot improve the worst-case sample complexity by more than constant factors as a function of
+\[
+\mathrm{fat}_{\Theta(\varepsilon)}(\mathcal{F}_{\ell}),
+\qquad
+\varepsilon^{-2},
+\qquad
+\text{and}
+\qquad
+\ln(1/\delta).
+\]
+\end{theorem}
+
+So fat-shattering does not merely certify that a regression problem is learnable in principle. Its scale-sensitive growth essentially determines the worst-case sample complexity of distribution-free learning for bounded losses.
+
+This has an important consequence. If $\mathrm{fat}_{\gamma}(\mathcal{F}_{\ell})$ stays bounded as $\gamma \downarrow 0$, then the sample complexity is of order $\varepsilon^{-2}$. If it grows like $\log(1/\gamma)$, the sample complexity picks up only a logarithmic overhead. If it grows like $\gamma^{-p}$, then the sample complexity scales like $\varepsilon^{-(p+2)}$. And if it grows exponentially in $1/\gamma$, then the worst-case sample complexity becomes exponential in $1/\varepsilon$.
+
+Three facts are useful to keep in mind.
+\begin{enumerate}[label=(\roman*)]
+\item If $\mathcal{F}$ is $\{0,1\}$-valued and $\gamma < 1/2$, then $\mathrm{fat}_{\gamma}(\mathcal{F})$ reduces to the ordinary VC dimension.
+\item The scale parameter matters. Large $\gamma$ asks for robust separation, while small $\gamma$ probes finer distinctions.
+\item For bounded real-valued ERM, fat-shattering is the right complexity notion: it gives both a qualitative iff characterization and quantitative sample-complexity bounds that are worst-case sharp up to constants; see Theorems~\ref{thm:generic-fat-sample} and~\ref{thm:generic-fat-lower}~\cite{bartlett1996,bartlettlong1998,colomboni2023}.
+\end{enumerate}
+
+\subsection{A task-complexity characterization}
+We now return to the hierarchical setting. After reducing to the idealized regime $m=\infty$, each hypothesis $h$ induces a real-valued function on the task space $\Theta$, namely its conditional risk profile $\theta \mapsto r_{\theta}(h)$.
+
+With the fat-shattering dimension in hand, one can now define a genuine notion of task complexity. The right object is not a scalar such as the maximum pairwise discrepancy between tasks. The correct object is a scale-sensitive complexity profile of the \emph{task-risk functions} induced by $\mathcal{H}$.
+
+For each $\theta$, define the conditional risk profile
+\[
+r_{\theta}(h) := \E[\ell(h;Z)\mid \theta].
+\]
+This induces a natural pseudometric on tasks,
+\[
+d_{\mathcal{H}}(\theta,\theta')
+:=
+\sup_{h \in \mathcal{H}} \bigl|r_{\theta}(h)-r_{\theta'}(h)\bigr|.
+\]
+The quantity $d_{\mathcal{H}}(\theta,\theta')$ does quantify how differently the two latent tasks look from the perspective of $\mathcal{H}$. However, it is not enough by itself for a characterization: ERM depends not only on pairwise distances, but on how richly the class $\mathcal{H}$ can separate many tasks simultaneously.
+
+The right way to package this is to view each $h$ as a real-valued function on the task space:
+\[
+g_h(\theta) := r_{\theta}(h),
+\qquad
+\mathcal{G}_{\mathcal{H}} := \{g_h : h \in \mathcal{H}\} \subseteq [0,1]^{\Theta}.
+\]
+
+\begin{definition}[Task complexity profile]
+For $\gamma > 0$, define the \emph{task complexity profile} of $\mathcal{H}$ at scale $\gamma$ by
+\[
+\mathrm{TC}_{\mathcal{H}}(\gamma)
+:=
+\mathrm{fat}_{\gamma}(\mathcal{G}_{\mathcal{H}}),
+\]
+the fat-shattering dimension of the task-risk class $\mathcal{G}_{\mathcal{H}}$ at margin $\gamma$.
+
+Equivalently, $\mathrm{TC}_{\mathcal{H}}(\gamma) \ge t$ if there exist tasks $\theta_1,\dots,\theta_t$ and thresholds $s_1,\dots,s_t$ such that for every subset $A \subseteq [t]$, there is some $h_A \in \mathcal{H}$ satisfying
+\[
+g_{h_A}(\theta_i) \le s_i - \gamma
+\quad \text{for } i \in A,
+\qquad
+g_{h_A}(\theta_i) \ge s_i + \gamma
+\quad \text{for } i \notin A.
+\]
+\end{definition}
+
+The quantity $\mathrm{TC}_{\mathcal{H}}(\gamma)$ is a direct measure of task diversity \emph{as seen by the hypothesis class}. It asks how many tasks can be margin-separated in all possible patterns by choosing different hypotheses.
+
+\begin{lemma}[Idealized reduction to iid ERM over tasks]
+\label{lem:task-reduction}
+Assume the idealized regime $m=\infty$, so that for each sampled task $\theta_i$ the learner has access to the exact task risks $r_{\theta_i}(h)$ for all $h \in \mathcal{H}$. Then pooled ERM returns
+\[
+\widehat{h}_k \in \arg\min_{h \in \mathcal{H}} \frac{1}{k}\sum_{i=1}^k r_{\theta_i}(h)
+=
+\arg\min_{h \in \mathcal{H}} \frac{1}{k}\sum_{i=1}^k g_h(\theta_i).
+\]
+Therefore the learning problem is exactly ordinary ERM for the bounded real-valued function class $\mathcal{G}_{\mathcal{H}}$ on the iid sample $\theta_1,\dots,\theta_k \sim p$.
+\end{lemma}
 
 \begin{proof}
-For fixed $h$, the task averages $U_i(h)$ from the previous proof are iid, bounded in $[0,1]$, with mean $R(h)$ and variance
+When $m=\infty$, the within-task empirical average equals its conditional expectation, so the pooled empirical risk becomes
 \[
-\Var(U_i(h)) = \Var_{\theta}(\mu_h(\theta)) + \frac{1}{m}\E_{\theta}[v_h(\theta)].
+\widehat{R}_{k,\infty}(h)
+=
+\frac{1}{k}\sum_{i=1}^k \E[\ell(h;Z)\mid \theta_i]
+=
+\frac{1}{k}\sum_{i=1}^k r_{\theta_i}(h)
+=
+\frac{1}{k}\sum_{i=1}^k g_h(\theta_i).
 \]
-Applying Bernstein's inequality to $\frac{1}{k}\sum_i U_i(h)$ and then taking a union bound over $\mathcal{H}$ yields the claim.
+Since the latent tasks are iid from $p$, the sample $(\theta_1,\dots,\theta_k)$ is iid and the claim follows.
 \end{proof}
 
-This bound makes the bottleneck explicit. If the task-mean losses $\mu_h(\theta)$ vary substantially across $\theta$, then the first term dominates and one essentially needs many tasks. If instead the task-mean losses are nearly constant, then the bound is close to the ordinary iid $1/\sqrt{km}$ rate.
-
-\subsection{Why small $k$ requires structure}
-The previous propositions already imply an important impossibility heuristic.
-
-\begin{remark}[The $m \to \infty$ reduction]
-If $m$ were infinite, then for each observed task $\theta_i$ we would know the exact task risk $\mu_h(\theta_i)$ for every $h$. The learning problem would reduce to approximating
+\begin{theorem}[Task-complexity characterization of pooled ERM]
+\label{thm:task-complexity-iff}
+Assume $\ell(h;z) \in [0,1]$ and the usual measurability conditions under which the standard fat-shattering characterization of bounded real-valued ERM applies. In the idealized regime $m=\infty$, the following are equivalent:
+\begin{enumerate}[label=(\roman*)]
+\item \textbf{Distribution-free learnability by pooled ERM.} For every $\varepsilon,\delta > 0$, there exists $k(\varepsilon,\delta)$ such that for every distribution $p(\theta)$, if $\theta_1,\dots,\theta_k \overset{\mathrm{iid}}{\sim} p$ and
 \[
-R(h) = \E_{\theta}[\mu_h(\theta)]
+\widehat{h}_k \in \arg\min_{h \in \mathcal{H}} \frac{1}{k}\sum_{i=1}^k r_{\theta_i}(h),
 \]
-from the task sample $\theta_1,\dots,\theta_k$. Therefore, without additional structure on the function class
+then with probability at least $1-\delta$,
 \[
-\mathcal{M} := \{\mu_h : h \in \mathcal{H}\},
+R(\widehat{h}_k) \le \inf_{h \in \mathcal{H}} R(h) + \varepsilon.
 \]
-large $m$ cannot compensate for small $k$.
+
+\item \textbf{Finite task complexity at every scale.} For every $\gamma > 0$,
+\[
+\mathrm{TC}_{\mathcal{H}}(\gamma) < \infty.
+\]
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+By Lemma~\ref{lem:task-reduction}, the idealized pooled-ERM problem is exactly the problem of empirical risk minimization over the bounded real-valued class $\mathcal{G}_{\mathcal{H}}$ on iid samples from the domain $\Theta$.
+
+The classical characterization of bounded real-valued ERM states that such a class is distribution-free learnable by ERM if and only if its fat-shattering dimension is finite at every scale; see Bartlett, Long, and Williamson~\cite{bartlett1996}. Applying that theorem to $\mathcal{G}_{\mathcal{H}}$ gives the equivalence between (i) and (ii).
+
+For completeness, the easy direction is the implication from uniform convergence to ERM consistency. If with probability at least $1-\delta$ one has
+\[
+\sup_{h \in \mathcal{H}}
+\left|
+\frac{1}{k}\sum_{i=1}^k g_h(\theta_i) - \E_{\theta \sim p}[g_h(\theta)]
+\right|
+\le \frac{\varepsilon}{2},
+\]
+then for any population minimizer $h^* \in \arg\min_{h \in \mathcal{H}} R(h)$ and any ERM $\widehat{h}_k$,
+\begin{align*}
+R(\widehat{h}_k) - R(h^*)
+&\le
+\left(
+R(\widehat{h}_k) - \frac{1}{k}\sum_{i=1}^k g_{\widehat{h}_k}(\theta_i)
+\right)
++
+\left(
+\frac{1}{k}\sum_{i=1}^k g_{h^*}(\theta_i) - R(h^*)
+\right) \\
+&\le
+2 \sup_{h \in \mathcal{H}}
+\left|
+\frac{1}{k}\sum_{i=1}^k g_h(\theta_i) - \E[g_h(\theta)]
+\right|
+\le \varepsilon.
+\end{align*}
+The converse direction is exactly the necessity statement in the cited fat-shattering characterization.
+\end{proof}
+
+\begin{remark}[Why this is the right notion]
+The pseudometric $d_{\mathcal{H}}$ is still useful: it measures how far apart two tasks are in terms of their conditional risk profiles. But Theorem~\ref{thm:task-complexity-iff} shows that learnability depends on more than pairwise separation. What matters is the scale-sensitive combinatorics of the entire family $\{r_{\theta}(\cdot) : \theta \in \Theta\}$, captured by $\mathrm{TC}_{\mathcal{H}}(\gamma)$.
 \end{remark}
 
-This is the cleanest way to state what seems both true and important:
-\begin{enumerate}[label=(\alph*)]
-\item A nontrivial ``few tasks suffice'' phenomenon is possible only if the task-level risk class $\mathcal{M}$ is simple, low-rank, low-variance, or otherwise compressible.
-\item In a distribution-free setting over arbitrary task families, there is no miracle. Once within-task noise is averaged out, the remaining problem is ordinary generalization over the space of tasks.
-\end{enumerate}
+\begin{lemma}[Finite-$m$ reduction]
+\label{lem:finite-m-reduction}
+For each $m \ge 1$, define the meta-sample
+\[
+S := (Z_1,\dots,Z_m) \in \mathcal{Z}^m,
+\]
+drawn by first sampling $\theta \sim p$ and then drawing $Z_1,\dots,Z_m \overset{\mathrm{iid}}{\sim} P_{\theta}$. Also define the meta-loss class
+\[
+G_{h,m}(S) := \frac{1}{m}\sum_{j=1}^m \ell(h;Z_j),
+\qquad
+\mathcal{G}_{\mathcal{H},m} := \{G_{h,m} : h \in \mathcal{H}\}.
+\]
+Then the hierarchical sample consists of iid meta-samples $S_1,\dots,S_k$, and pooled ERM is exactly ERM on $\mathcal{G}_{\mathcal{H},m}$:
+\[
+\widehat{h}_{k,m}
+\in
+\arg\min_{h \in \mathcal{H}} \frac{1}{k}\sum_{i=1}^k G_{h,m}(S_i).
+\]
+Consequently, for each fixed $m$, pooled ERM is distribution-free learnable if and only if
+\[
+\mathrm{fat}_{\gamma}(\mathcal{G}_{\mathcal{H},m}) < \infty
+\qquad \text{for every } \gamma > 0.
+\]
+\end{lemma}
 
-This is very much in line with the meta-learning literature: success with few samples per task is possible, but only because the shared structure across tasks is constrained.
+\begin{proof}
+For each task $i$, the tuple
+\[
+S_i := (Z_{i1},\dots,Z_{im})
+\]
+is drawn independently from the same meta-distribution on $\mathcal{Z}^m$. By definition,
+\[
+\widehat{R}_{k,m}(h)
+=
+\frac{1}{k}\sum_{i=1}^k \frac{1}{m}\sum_{j=1}^m \ell(h;Z_{ij})
+=
+\frac{1}{k}\sum_{i=1}^k G_{h,m}(S_i).
+\]
+So pooled ERM is ordinary ERM on the bounded real-valued class $\mathcal{G}_{\mathcal{H},m}$ with iid samples $S_1,\dots,S_k$. Applying the same fat-shattering characterization as in Theorem~\ref{thm:task-complexity-iff} gives the final claim.
+\end{proof}
 
-\subsection{Linear regression as a concrete test case}
-The linear-regression case is a natural place to start because it most closely parallels the ICL literature. Suppose
-\[
-h_w(x) = w^\top x,
-\qquad
-\ell(w;(x,y)) = (w^\top x - y)^2.
-\]
-For each task $\theta$, define
-\[
-A(\theta) := \E[XX^\top \mid \theta],
-\qquad
-b(\theta) := \E[XY \mid \theta],
-\qquad
-c(\theta) := \E[Y^2 \mid \theta].
-\]
-Then the task risk is
-\[
-r_{\theta}(w)
-:= \E[(w^\top X - Y)^2 \mid \theta]
-= w^\top A(\theta) w - 2 w^\top b(\theta) + c(\theta),
-\]
-and the mixture risk is
-\[
-R(w)
-= w^\top \bar{A} w - 2 w^\top \bar{b} + \bar{c},
-\]
-where
-\[
-\bar{A} := \E_{\theta}[A(\theta)],
-\qquad
-\bar{b} := \E_{\theta}[b(\theta)],
-\qquad
-\bar{c} := \E_{\theta}[c(\theta)].
-\]
+\begin{theorem}[Sample complexity for pooled ERM]
+\label{thm:sample-complexity-pooled}
+There exist universal constants $c,C > 0$ such that the following holds.
 
-This specialization exposes an appealing route for future work. The full meta-distribution matters only through the averages of a small set of task statistics. Therefore:
 \begin{enumerate}[label=(\roman*)]
-\item if $A(\theta)$ and $b(\theta)$ concentrate strongly across tasks, then small $k$ should suffice;
-\item if the family $\{(A(\theta),b(\theta))\}$ lies near a low-dimensional subspace, then one should hope for sample complexity driven by that low task complexity rather than by an unrestricted $1/\varepsilon^2$ task count;
-\item if $A(\theta)$ and $b(\theta)$ vary arbitrarily, then even $m = \infty$ does not avoid the task-sampling bottleneck.
-\end{enumerate}
+\item For every finite $m \ge 1$, if
+\[
+k
+\ge
+C \cdot \frac{\mathrm{fat}_{c\varepsilon}(\mathcal{G}_{\mathcal{H},m}) + \ln(1/\delta)}{\varepsilon^2},
+\]
+then with probability at least $1-\delta$, every pooled ERM $\widehat{h}_{k,m}$ satisfies
+\[
+R(\widehat{h}_{k,m}) \le \inf_{h \in \mathcal{H}} R(h) + \varepsilon.
+\]
 
-This is, in my view, the closest supervised analogue of the phenomenon isolated by Raventos et al.~\cite{raventos2023}: finitely many observed tasks can stand in for an infinite task family only when those tasks already pin down the relevant sufficient statistics of the broader environment.
+\item In the idealized regime $m=\infty$, if
+\[
+k
+\ge
+C \cdot \frac{\mathrm{TC}_{\mathcal{H}}(c\varepsilon) + \ln(1/\delta)}{\varepsilon^2},
+\]
+then with probability at least $1-\delta$, every pooled ERM $\widehat{h}_{k}$ satisfies
+\[
+R(\widehat{h}_{k}) \le \inf_{h \in \mathcal{H}} R(h) + \varepsilon.
+\]
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+For the finite-$m$ case, Lemma~\ref{lem:finite-m-reduction} shows that pooled ERM is ordinary ERM on the bounded real-valued class $\mathcal{G}_{\mathcal{H},m}$ with iid meta-samples $S_1,\dots,S_k$.
+
+Apply Theorem~\ref{thm:generic-fat-sample} with the example space $\mathcal{Z}^m$, the hypothesis class $\mathcal{H}$, and the bounded loss
+\[
+\ell_m(h,S) := G_{h,m}(S) = \frac{1}{m}\sum_{j=1}^m \ell(h;Z_j).
+\]
+Its induced loss class is exactly $\mathcal{G}_{\mathcal{H},m}$. This yields the finite-$m$ claim directly.
+
+The idealized $m=\infty$ case is the same argument, using Lemma~\ref{lem:task-reduction} and the identity
+\[
+\mathrm{TC}_{\mathcal{H}}(\gamma) = \mathrm{fat}_{\gamma}(\mathcal{G}_{\mathcal{H}}).
+\]
+\end{proof}
+
+\begin{remark}[What the characterization says]
+Theorem~\ref{thm:task-complexity-iff} gives the exact answer in the noise-free task limit, while Lemma~\ref{lem:finite-m-reduction} shows that the finite-$m$ problem is the same question after replacing each latent task by a noisy length-$m$ snapshot. So there really is an if-and-only-if statement, but the right complexity is a \emph{profile}
+\[
+\gamma \mapsto \mathrm{TC}_{\mathcal{H}}(\gamma),
+\]
+not a single scalar such as a task diameter or an average pairwise distance.
+\end{remark}
+
+\begin{remark}[From characterization to rates]
+Theorem~\ref{thm:task-complexity-iff} is qualitative: it characterizes when pooled ERM is possible in principle. To obtain quantitative bounds on the number of tasks $k$, one needs upper bounds on the size or growth of $\mathrm{TC}_{\mathcal{H}}(\gamma)$, or on localized variants of this complexity profile. To beat the generic $1/\varepsilon^2$ task barrier, one also needs a fast-rate condition at the task level, such as a Bernstein or central condition; see van Erven et al.~\cite{vanerven2015}.
+\end{remark}
 
 \section{Takeaways and candidate directions}
 At this stage, the picture seems to be the following.
 
 \begin{enumerate}[label=(\arabic*)]
-\item \textbf{Pooled ERM is not misaligned with the target risk.} The sample is dependent, but each example has the correct marginal distribution. The real issue is variance and uniform convergence, not bias.
-\item \textbf{Task heterogeneity is the fundamental obstruction.} The exact variance decomposition shows that increasing $m$ only reduces within-task noise. It does nothing to reduce the variance of the task-mean losses across $\theta$.
-\item \textbf{Any regime with very small $k$ must exploit structure on the task-risk map.} Promising structural assumptions include common invariant conditionals, low-rank families of task moments, shared sufficient statistics, or small task variance around a common predictor.
-\item \textbf{Linear regression looks especially tractable.} One can hope for a theorem saying that if the task moments $(A(\theta),b(\theta))$ come from a low-complexity family, then pooled ERM or regularized ERM generalizes to the full mixture with $k$ much smaller than the naive iid task count.
+\item \textbf{The right language is real-valued, not binary.} Once each hypothesis is viewed as a task-risk function $\theta \mapsto r_{\theta}(h)$, the relevant complexity notion is the fat-shattering dimension rather than VC dimension.
+\item \textbf{There is an exact task-level iff statement.} In the idealized regime $m=\infty$, pooled ERM works if and only if the induced task-risk class $\mathcal{G}_{\mathcal{H}} = \{\theta \mapsto r_{\theta}(h)\}$ has finite fat-shattering dimension at every scale.
+\item \textbf{The right complexity is a profile, not a scalar distance.} The quantity $\mathrm{TC}_{\mathcal{H}}(\gamma) = \mathrm{fat}_{\gamma}(\mathcal{G}_{\mathcal{H}})$ measures how richly hypotheses can separate many tasks simultaneously. This is stronger than any single pairwise notion of task discrepancy.
+\item \textbf{Finite $m$ is the same question with noisy task snapshots.} The finite-$m$ model reduces to ERM on the meta-class $\mathcal{G}_{\mathcal{H},m}$, so the exact iff remains a fat-shattering statement after lifting tasks to length-$m$ samples.
+\item \textbf{The remaining challenge is quantitative.} The conceptual characterization is now clean; the next problem is to get interpretable upper bounds on $\mathrm{TC}_{\mathcal{H}}(\gamma)$ in concrete models and then convert them into sharp bounds on the number of tasks $k$.
 \end{enumerate}
 
-The main open question for the next step is therefore not merely ``can small $k$ work?'', but rather:
-\[
-\textit{what is the right notion of task-level complexity that replaces raw task count?}
-\]
+The main open question for the next step is no longer whether an iff statement exists; it does. The harder question is:
+\begin{quote}
+\itshape
+Which concrete structural assumptions on $\mathcal{G}_{\mathcal{H}}$ yield sharp and interpretable bounds on $\mathrm{TC}_{\mathcal{H}}(\gamma)$, and hence on $k$?
+\end{quote}
 Finding the right answer here would give a supervised-learning counterpart to the finite-task-diversity phenomena already observed in in-context learning.
 
-\begin{thebibliography}{11}
+\begin{thebibliography}{15}
 
 \bibitem{akyurek2023}
 Ekin Akyurek, Dale Schuurmans, Jacob Andreas, Tengyu Ma, and Denny Zhou.
@@ -305,6 +456,24 @@ Jonathan Baxter.
 \newblock A model of inductive bias learning.
 \newblock \emph{Journal of Artificial Intelligence Research}, 12:149--198, 2000.
 \newblock \url{https://arxiv.org/abs/1106.0245}
+
+\bibitem{bartlett1996}
+Peter L. Bartlett, Philip M. Long, and Robert C. Williamson.
+\newblock Fat-shattering and the learnability of real-valued functions.
+\newblock \emph{Journal of Computer and System Sciences}, 52(3):434--452, 1996.
+\newblock \url{https://doi.org/10.1006/jcss.1996.0033}
+
+\bibitem{bartlettlong1998}
+Peter L. Bartlett and Philip M. Long.
+\newblock Prediction, learning, uniform convergence, and scale-sensitive dimensions.
+\newblock \emph{Journal of Computer and System Sciences}, 56(2):174--190, 1998.
+\newblock \url{https://doi.org/10.1006/jcss.1997.1557}
+
+\bibitem{colomboni2023}
+Roberto Colomboni, Emmanuel Esposito, and Andrea Paudice.
+\newblock An improved uniform convergence bound with fat-shattering dimension.
+\newblock arXiv:2307.06644, 2023.
+\newblock \url{https://arxiv.org/abs/2307.06644}
 
 \bibitem{maurer2016}
 Andreas Maurer, Massimiliano Pontil, and Bernardino Romera-Paredes.
@@ -353,6 +522,12 @@ Ozan Sener and Vladlen Koltun.
 \newblock Domain generalization without excess empirical risk.
 \newblock arXiv:2308.15856, 2023.
 \newblock \url{https://arxiv.org/abs/2308.15856}
+
+\bibitem{vanerven2015}
+Tim van Erven, Peter D. Gr\"unwald, Nishant A. Mehta, Mark D. Reid, and Robert C. Williamson.
+\newblock Fast rates in statistical and online learning.
+\newblock \emph{Journal of Machine Learning Research}, 16(54):1793--1861, 2015.
+\newblock \url{https://www.jmlr.org/papers/v16/vanerven15a.html}
 
 \end{thebibliography}
 
