@@ -169,48 +169,62 @@ satisfies
 
 This theorem is the clean answer to where the scale parameter $\gamma$ goes. To learn to accuracy $\varepsilon$, one needs to evaluate the complexity of the loss class at scale $\gamma \asymp \varepsilon$, which is why the bound involves $\mathrm{fat}_{c\varepsilon}$ rather than a scale-free quantity.
 
-\begin{theorem}[Worst-case optimality of the fat-shattering bound]
-\label{thm:generic-fat-lower}
-Up to universal constant factors, the dependence in Theorem~\ref{thm:generic-fat-sample} is unavoidable in the distribution-free setting. In other words, one cannot improve the worst-case sample complexity by more than constant factors as a function of
+\begin{theorem}[What fat-shattering characterizes for proper ERM]
+\label{thm:generic-fat-erm}
+Assume the usual measurability conditions. Let $\mathcal{H}$ be a hypothesis class, let $\ell : \mathcal{H} \times \mathcal{Z} \to [0,1]$ be a bounded loss, and let
 \[
-\mathrm{fat}_{\Theta(\varepsilon)}(\mathcal{F}_{\ell}),
-\qquad
-\varepsilon^{-2},
-\qquad
-\text{and}
-\qquad
-\ln(1/\delta).
+\mathcal{F}_{\ell}
+:=
+\{z \mapsto \ell(h,z) : h \in \mathcal{H}\}
+\subseteq [0,1]^{\mathcal{Z}}.
 \]
+Then the following are equivalent:
+\begin{enumerate}[label=(\roman*)]
+\item \textbf{Distribution-free learnability by proper ERM.} For every $\varepsilon,\delta > 0$, there exists $n(\varepsilon,\delta)$ such that for every distribution $P$ on $\mathcal{Z}$, if $z_1,\dots,z_n \overset{\mathrm{iid}}{\sim} P$ and
+\[
+\widehat{h}
+\in
+\arg\min_{h \in \mathcal{H}} \frac{1}{n}\sum_{i=1}^n \ell(h,z_i),
+\]
+then with probability at least $1-\delta$,
+\[
+\E_{z \sim P}[\ell(\widehat{h},z)]
+\le
+\inf_{h \in \mathcal{H}} \E_{z \sim P}[\ell(h,z)] + \varepsilon.
+\]
+
+\item \textbf{Finite fat-shattering dimension at every scale.} For every $\gamma > 0$,
+\[
+\mathrm{fat}_{\gamma}(\mathcal{F}_{\ell}) < \infty.
+\]
+\end{enumerate}
 \end{theorem}
 
-So fat-shattering does not merely certify that a regression problem is learnable in principle. Its scale-sensitive growth essentially determines the worst-case sample complexity of distribution-free learning for bounded losses.
+This is the classical qualitative characterization for proper learning with bounded real-valued losses; see Bartlett, Long, and Williamson~\cite{bartlett1996}.
 
-This has an important consequence. If $\mathrm{fat}_{\gamma}(\mathcal{F}_{\ell})$ stays bounded as $\gamma \downarrow 0$, then the sample complexity is of order $\varepsilon^{-2}$. If it grows like $\log(1/\gamma)$, the sample complexity picks up only a logarithmic overhead. If it grows like $\gamma^{-p}$, then the sample complexity scales like $\varepsilon^{-(p+2)}$. And if it grows exponentially in $1/\gamma$, then the worst-case sample complexity becomes exponential in $1/\varepsilon$.
+\begin{remark}[Scope of the characterization]
+\label{rem:generic-fat-caution}
+Theorem~\ref{thm:generic-fat-erm} is intentionally a theorem about \emph{proper ERM}. It says that fat-shattering is the right scale-sensitive notion for ERM and uniform-convergence arguments. It does \emph{not} say that the upper bound in Theorem~\ref{thm:generic-fat-sample} is minimax optimal among all distribution-free learners, especially improper ones. In fact, more recent work explicitly distinguishes ERM learnability from more general learnability notions in real-valued prediction problems; see Attias et al.~\cite{attias2024}.
+\end{remark}
+
+What one can safely conclude from Theorem~\ref{thm:generic-fat-sample} and Theorem~\ref{thm:generic-fat-erm} is the following. If $\mathrm{fat}_{\gamma}(\mathcal{F}_{\ell})$ stays bounded as $\gamma \downarrow 0$, then the standard ERM sample-complexity upper bound is of order $\varepsilon^{-2}$. If it grows like $\log(1/\gamma)$, the ERM bound picks up only a logarithmic overhead. If it grows like $\gamma^{-p}$, then the ERM bound scales like $\varepsilon^{-(p+2)}$. And if it grows exponentially in $1/\gamma$, then the standard ERM upper bound becomes exponential in $1/\varepsilon$.
 
 Three facts are useful to keep in mind.
 \begin{enumerate}[label=(\roman*)]
 \item If $\mathcal{F}$ is $\{0,1\}$-valued and $\gamma < 1/2$, then $\mathrm{fat}_{\gamma}(\mathcal{F})$ reduces to the ordinary VC dimension.
 \item The scale parameter matters. Large $\gamma$ asks for robust separation, while small $\gamma$ probes finer distinctions.
-\item For bounded real-valued ERM, fat-shattering is the right complexity notion: it gives both a qualitative iff characterization and quantitative sample-complexity bounds that are worst-case sharp up to constants; see Theorems~\ref{thm:generic-fat-sample} and~\ref{thm:generic-fat-lower}~\cite{bartlett1996,bartlettlong1998,colomboni2023}.
+\item For bounded real-valued ERM, fat-shattering is the right complexity notion: it gives a qualitative iff characterization for proper ERM learnability and quantitative ERM sample-complexity upper bounds; see Theorems~\ref{thm:generic-fat-sample} and~\ref{thm:generic-fat-erm} and~\cite{bartlett1996,bartlettlong1998,colomboni2023}. The lower-bound story for arbitrary improper learners is subtler; see Remark~\ref{rem:generic-fat-caution} and Attias et al.~\cite{attias2024}.
 \end{enumerate}
 
 \subsection{A task-complexity characterization}
 We now return to the hierarchical setting. After reducing to the idealized regime $m=\infty$, each hypothesis $h$ induces a real-valued function on the task space $\Theta$, namely its conditional risk profile $\theta \mapsto r_{\theta}(h)$.
 
-With the fat-shattering dimension in hand, one can now define a genuine notion of task complexity. The right object is not a scalar such as the maximum pairwise discrepancy between tasks. The correct object is a scale-sensitive complexity profile of the \emph{task-risk functions} induced by $\mathcal{H}$.
+With the fat-shattering dimension in hand, one can now define a genuine notion of task complexity. The correct object is a scale-sensitive complexity profile of the \emph{task-risk functions} induced by $\mathcal{H}$.
 
 For each $\theta$, define the conditional risk profile
 \[
 r_{\theta}(h) := \E[\ell(h;Z)\mid \theta].
 \]
-This induces a natural pseudometric on tasks,
-\[
-d_{\mathcal{H}}(\theta,\theta')
-:=
-\sup_{h \in \mathcal{H}} \bigl|r_{\theta}(h)-r_{\theta'}(h)\bigr|.
-\]
-The quantity $d_{\mathcal{H}}(\theta,\theta')$ does quantify how differently the two latent tasks look from the perspective of $\mathcal{H}$. However, it is not enough by itself for a characterization: ERM depends not only on pairwise distances, but on how richly the class $\mathcal{H}$ can separate many tasks simultaneously.
-
 The right way to package this is to view each $h$ as a real-valued function on the task space:
 \[
 g_h(\theta) := r_{\theta}(h),
@@ -247,7 +261,17 @@ Assume the idealized regime $m=\infty$, so that for each sampled task $\theta_i$
 =
 \arg\min_{h \in \mathcal{H}} \frac{1}{k}\sum_{i=1}^k g_h(\theta_i).
 \]
-Therefore the learning problem is exactly ordinary ERM for the bounded real-valued function class $\mathcal{G}_{\mathcal{H}}$ on the iid sample $\theta_1,\dots,\theta_k \sim p$.
+Moreover, for every $h \in \mathcal{H}$,
+\[
+\E_{\theta \sim p}[g_h(\theta)]
+=
+\E_{\theta \sim p}[r_{\theta}(h)]
+=
+\E_{\theta \sim p}\E_{Z \sim P_{\theta}}[\ell(h;Z)]
+=
+R(h).
+\]
+Therefore the idealized hierarchical excess-risk problem is exactly ordinary ERM for the bounded real-valued function class $\mathcal{G}_{\mathcal{H}}$ on the iid sample $\theta_1,\dots,\theta_k \sim p$, both at the empirical level and at the population-risk level.
 \end{lemma}
 
 \begin{proof}
@@ -260,6 +284,14 @@ When $m=\infty$, the within-task empirical average equals its conditional expect
 \frac{1}{k}\sum_{i=1}^k r_{\theta_i}(h)
 =
 \frac{1}{k}\sum_{i=1}^k g_h(\theta_i).
+\]
+Also,
+\[
+\E_{\theta \sim p}[g_h(\theta)]
+=
+\E_{\theta \sim p}\E[\ell(h;Z)\mid \theta]
+=
+R(h).
 \]
 Since the latent tasks are iid from $p$, the sample $(\theta_1,\dots,\theta_k)$ is iid and the claim follows.
 \end{proof}
@@ -318,11 +350,7 @@ R(\widehat{h}_k) - \frac{1}{k}\sum_{i=1}^k g_{\widehat{h}_k}(\theta_i)
 The converse direction is exactly the necessity statement in the cited fat-shattering characterization.
 \end{proof}
 
-\begin{remark}[Why this is the right notion]
-The pseudometric $d_{\mathcal{H}}$ is still useful: it measures how far apart two tasks are in terms of their conditional risk profiles. But Theorem~\ref{thm:task-complexity-iff} shows that learnability depends on more than pairwise separation. What matters is the scale-sensitive combinatorics of the entire family $\{r_{\theta}(\cdot) : \theta \in \Theta\}$, captured by $\mathrm{TC}_{\mathcal{H}}(\gamma)$.
-\end{remark}
-
-\begin{lemma}[Finite-$m$ reduction]
+\begin{lemma}[Finite-$m$ learnability via the meta-loss class]
 \label{lem:finite-m-reduction}
 For each $m \ge 1$, define the meta-sample
 \[
@@ -334,25 +362,42 @@ G_{h,m}(S) := \frac{1}{m}\sum_{j=1}^m \ell(h;Z_j),
 \qquad
 \mathcal{G}_{\mathcal{H},m} := \{G_{h,m} : h \in \mathcal{H}\}.
 \]
-Then the hierarchical sample consists of iid meta-samples $S_1,\dots,S_k$, and pooled ERM is exactly ERM on $\mathcal{G}_{\mathcal{H},m}$:
-\[
-\widehat{h}_{k,m}
-\in
-\arg\min_{h \in \mathcal{H}} \frac{1}{k}\sum_{i=1}^k G_{h,m}(S_i).
-\]
-Consequently, for each fixed $m$, pooled ERM is distribution-free learnable if and only if
+Assume that
 \[
 \mathrm{fat}_{\gamma}(\mathcal{G}_{\mathcal{H},m}) < \infty
 \qquad \text{for every } \gamma > 0.
 \]
+Then the original hierarchical learning problem at this fixed $m$ is distribution-free learnable by pooled ERM: for every $\varepsilon,\delta > 0$, there exists $k(\varepsilon,\delta,m)$ such that for every choice of $p(\theta)$ and conditional laws $P_{\theta}$, if
+\[
+\widehat{h}_{k,m}
+\in
+\arg\min_{h \in \mathcal{H}} \widehat{R}_{k,m}(h)
+\qquad\text{where}\qquad
+\widehat{R}_{k,m}(h)
+:=
+\frac{1}{k}\sum_{i=1}^k \frac{1}{m}\sum_{j=1}^m \ell(h;Z_{ij}),
+\]
+then with probability at least $1-\delta$,
+\[
+R(\widehat{h}_{k,m})
+\le
+\inf_{h \in \mathcal{H}} R(h) + \varepsilon.
+\]
 \end{lemma}
 
 \begin{proof}
+Define the population risk for the finite-$m$ meta-problem by
+\[
+R_m(h)
+:=
+\E_{\theta \sim p}\E_{Z_1,\dots,Z_m \sim P_{\theta}}
+\left[\frac{1}{m}\sum_{j=1}^m \ell(h;Z_j)\right].
+\]
 For each task $i$, the tuple
 \[
 S_i := (Z_{i1},\dots,Z_{im})
 \]
-is drawn independently from the same meta-distribution on $\mathcal{Z}^m$. By definition,
+is drawn independently from the same meta-distribution on $\mathcal{Z}^m$, and by definition
 \[
 \widehat{R}_{k,m}(h)
 =
@@ -360,7 +405,53 @@ is drawn independently from the same meta-distribution on $\mathcal{Z}^m$. By de
 =
 \frac{1}{k}\sum_{i=1}^k G_{h,m}(S_i).
 \]
-So pooled ERM is ordinary ERM on the bounded real-valued class $\mathcal{G}_{\mathcal{H},m}$ with iid samples $S_1,\dots,S_k$. Applying the same fat-shattering characterization as in Theorem~\ref{thm:task-complexity-iff} gives the final claim.
+So pooled ERM is exactly ERM on the bounded real-valued class $\mathcal{G}_{\mathcal{H},m}$ using the iid meta-samples $S_1,\dots,S_k$.
+
+Because $\mathrm{fat}_{\gamma}(\mathcal{G}_{\mathcal{H},m}) < \infty$ for every $\gamma > 0$, the standard fat-shattering characterization of bounded real-valued ERM implies that the meta-problem is distribution-free learnable. Equivalently, for every $\varepsilon,\delta > 0$, there exists $k(\varepsilon,\delta,m)$ such that with probability at least $1-\delta$,
+\[
+\sup_{h \in \mathcal{H}}
+\left|
+\widehat{R}_{k,m}(h) - R_m(h)
+\right|
+\le \frac{\varepsilon}{2}.
+\]
+In particular, on this event,
+\[
+\widehat{R}_{k,m}(h) \le R_m(h) + \frac{\varepsilon}{2}
+\qquad \text{for every } h \in \mathcal{H}.
+\]
+Therefore, for any population minimizer $h_m^* \in \arg\min_{h \in \mathcal{H}} R_m(h)$ and any pooled ERM $\widehat{h}_{k,m}$,
+\begin{align*}
+R_m(\widehat{h}_{k,m}) - R_m(h_m^*)
+&\le
+\left(
+R_m(\widehat{h}_{k,m}) - \widehat{R}_{k,m}(\widehat{h}_{k,m})
+\right)
++
+\left(
+\widehat{R}_{k,m}(h_m^*) - R_m(h_m^*)
+\right) \\
+&\le
+2 \sup_{h \in \mathcal{H}}
+\left|
+\widehat{R}_{k,m}(h) - R_m(h)
+\right|
+\le \varepsilon.
+\end{align*}
+Thus pooled ERM learns with respect to $R_m$.
+
+Finally, for every $h \in \mathcal{H}$,
+\[
+R_m(h)
+=
+\E_{\theta \sim p}\E_{Z_1,\dots,Z_m \sim P_{\theta}}
+\left[\frac{1}{m}\sum_{j=1}^m \ell(h;Z_j)\right]
+=
+\E_{\theta \sim p}\E_{Z \sim P_{\theta}}[\ell(h;Z)]
+=
+R(h).
+\]
+So an excess-risk guarantee with respect to $R_m$ is exactly an excess-risk guarantee with respect to the original hierarchical objective $R$. This proves the claim.
 \end{proof}
 
 \begin{theorem}[Sample complexity for pooled ERM]
@@ -399,12 +490,25 @@ Apply Theorem~\ref{thm:generic-fat-sample} with the example space $\mathcal{Z}^m
 \[
 \ell_m(h,S) := G_{h,m}(S) = \frac{1}{m}\sum_{j=1}^m \ell(h;Z_j).
 \]
-Its induced loss class is exactly $\mathcal{G}_{\mathcal{H},m}$. This yields the finite-$m$ claim directly.
+Its induced loss class is exactly $\mathcal{G}_{\mathcal{H},m}$. Therefore Theorem~\ref{thm:generic-fat-sample} yields
+\[
+\E[G_{\widehat h_{k,m},m}(S)]
+\le
+\inf_{h \in \mathcal{H}} \E[G_{h,m}(S)] + \varepsilon.
+\]
+By Lemma~\ref{lem:finite-m-reduction}, $\E[G_{h,m}(S)] = R(h)$ for every $h$, so this is exactly the finite-$m$ claim.
 
 The idealized $m=\infty$ case is the same argument, using Lemma~\ref{lem:task-reduction} and the identity
 \[
 \mathrm{TC}_{\mathcal{H}}(\gamma) = \mathrm{fat}_{\gamma}(\mathcal{G}_{\mathcal{H}}).
 \]
+Indeed, Theorem~\ref{thm:generic-fat-sample} gives
+\[
+\E[g_{\widehat h_k}(\theta)]
+\le
+\inf_{h \in \mathcal{H}} \E[g_h(\theta)] + \varepsilon,
+\]
+and Lemma~\ref{lem:task-reduction} identifies $\E[g_h(\theta)]$ with $R(h)$ for every $h$.
 \end{proof}
 
 \begin{remark}[What the characterization says]
@@ -437,7 +541,7 @@ Which concrete structural assumptions on $\mathcal{G}_{\mathcal{H}}$ yield sharp
 \end{quote}
 Finding the right answer here would give a supervised-learning counterpart to the finite-task-diversity phenomena already observed in in-context learning.
 
-\begin{thebibliography}{15}
+\begin{thebibliography}{16}
 
 \bibitem{akyurek2023}
 Ekin Akyurek, Dale Schuurmans, Jacob Andreas, Tengyu Ma, and Denny Zhou.
@@ -492,6 +596,12 @@ Maryam Aliakbarpour, Konstantina Bairaktari, Gavin Brown, Adam Smith, Nathan Sre
 \newblock Metalearning with very few samples per task.
 \newblock arXiv:2312.13978, 2024.
 \newblock \url{https://arxiv.org/abs/2312.13978}
+
+\bibitem{attias2024}
+Idan Attias, Steve Hanneke, Alkis Kalavasis, Amin Karbasi, and Grigoris Velegkas.
+\newblock Optimal learners for realizable regression: PAC learning and online learning.
+\newblock arXiv:2307.03848, 2024.
+\newblock \url{https://arxiv.org/abs/2307.03848}
 
 \bibitem{arjovsky2019}
 Martin Arjovsky, Leon Bottou, Ishaan Gulrajani, and David Lopez-Paz.
